@@ -1,0 +1,76 @@
+import pandas as pd
+import numpy as np
+import pandas_profiling as ppt
+
+
+##---------------------------------------- 获取数据 ----------------------------------------##
+
+data=pd.read_table('yongyan_1.txt',names=['geekid','nps','sex','work_year','degree','days','action','action_count'])
+# print(data.head())
+
+# 简单看一下分布情况
+# report=ppt.ProfileReport(data)
+# report.to_file('report.html')
+
+##---------------------------------------- 组织特征 ----------------------------------------##
+
+data_pivot=data.pivot_table(index=['geekid','nps','sex','work_year','degree','days'],columns='action',values='action_count')
+data_c=data_pivot.reset_index()
+data_rf=data_c.fillna(0)
+print(data_rf.head())
+
+##---------------------------------------- 洗牌，重构 ----------------------------------------##
+
+X=data_rf.drop(['geekid','nps','check-wujisha','creplenish_mymerit_custom','user-update','comp_show','upgrade-check','iwant-part-select'],axis=1)
+y=data_rf.nps
+
+#需要进一步清洗数据
+# print(X.columns)
+y[y<3]=0
+y[y>=3]=1
+print(y.head())
+
+##---------------------------------------- 分训练数据 ----------------------------------------##
+
+from sklearn.model_selection import train_test_split
+train_X, test_X, train_y, test_y = train_test_split(X,y,test_size=0.2)
+
+##---------------------------------------- 建立随机森林分类器 ----------------------------------------##
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.inspection import permutation_importance
+from matplotlib import pyplot as plt
+
+clf=RandomForestClassifier(n_estimators=150,max_depth=8,random_state=42)
+clf.fit(train_X,train_y)
+
+print("Accuracy on  data: {:.2f}".format(clf.score(X, y)))
+importance = clf.feature_importances_
+
+# 看一下各个特征的得分
+out=[*zip(X.columns,importance)]
+for i in out:
+    print(i)
+
+
+
+# 变量的重要性程度值 作图
+from matplotlib import pyplot as plt
+import matplotlib
+import seaborn as sns
+
+plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']
+# matplotlib.style.use('ggplot')
+
+importance = clf.feature_importances_
+
+# 构建含序列用于绘图
+Impt_Series = pd.Series(importance, index = train_X.columns)
+# 对序列排序绘图
+out_data=Impt_Series.sort_values(ascending = False)[0:30]
+out_data.sort_values(ascending = False).plot(kind='bar')
+sns.barplot(out_data.index,out_data.values)
+print(out_data)
+
+plt.title('影响用户NPS打分的行为TOP30')
+plt.show()
